@@ -28,7 +28,7 @@ library(reshape2)
 library(plotly)
 ```
 
-In this section, we will use the [NHANES_JSM_2019](./shortcourse_data.html) data to illustrate scalar on function regression (sofr).
+In this section, we will use the [NHANES](./Data.html) data to illustrate scalar on function regression (sofr).
 
 ## NHANES data
 
@@ -40,8 +40,7 @@ $$x_i(t), t = 1,\ldots, 24$$
 
 
 ```{r nhanes_all_subjects, eval = TRUE}
-#load("./DataCode/JSM_2019_NHANES.RDA")
-load("./DataCode/NHANES_JSM_2019.RData")
+load("./DataCode/NHANES.RData")
 
 hTAC = as.matrix(hTAC)
 n = dim(hTAC)[1] # number of participants

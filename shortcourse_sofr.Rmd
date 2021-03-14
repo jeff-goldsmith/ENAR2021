@@ -28,7 +28,7 @@ library(reshape2)
 library(plotly)
 ```
 
-In this section we'll use the [NHANES_JSM_2019](./shortcourse_data.html) to illustrate scalar-on-function regression (sofr).
+In this section we'll use the [NHANES](./Data.html) to illustrate scalar-on-function regression (sofr).
 
 ## Introduction
 
@@ -95,7 +95,7 @@ Using fPCA, we can decompose functional predictors $x_i(t)$ as
 
 $$x_i(t)\approx \sum_{k=1}^K\hat{\phi}_k(t)\hat{\xi}_{ik}.$$
 
-Then, the functional regression parameter $\beta(t)$ is modelled as a linear combination of the functional PC
+Then, the functional regression parameter $beta(t)$ is modelled as a linear combination of the functional PC
 
 $$\beta(t)\approx \sum_{k=1}^K\hat{\phi}_k(t)\beta_k.$$
 
@@ -113,7 +113,7 @@ Thus, the problem of estimating functional regression parameter $\beta(t)$ is re
 In this example, we perform SoFR of BMI (continuous outcome) on fPC1, fPC2, fPC3 scores adjusted for Age and Gender.
 
 ```{r sofr_call_01, eval = TRUE}
-load("./DataCode/NHANES_JSM_2019.RData")
+load("./DataCode/NHANES.RData")
 
 hTAC = as.matrix(hTAC)
 n = dim(hTAC)[1] # number of participants
@@ -141,7 +141,7 @@ fit.1 <- lm(scale(BMI) ~ scale(Age) + Male + scale(fPC1.score) + scale(fPC2.scor
 summary(fit.1)$call
 summary(fit.1)$coefficients
 ```
-Note that the fPCs scores are uncorrelation and normalized, so the magnitude of the estimated coefficients is interpretable. 
+Note that the fPCs scores are uncorrelated and normalized, so the magnitude of the estimated coefficients is interpretable. 
 
 We can now calcuale the functional regression parameter $\hat{\beta}(t)$ as a linear combination of the statistically significant fPCs scores.
 
