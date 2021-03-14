@@ -7,22 +7,35 @@ output:
     toc_float: true
 ---
 
-```{r, echo = FALSE}
+```{r setup, echo = TRUE, show = "hide", message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  fig.width = 8,
-  fig.height = 4
+  comment = "##",
+  fig.width = 8, 
+  fig.height = 5.5,
+  out.width = "90%"
 )
+
+library(tidyverse)
+library(viridisLite)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 This page contains a combination of traditional lecture materials (slides) and code demonstrating the relevant methods. The short course will proceed by working through both. We will use several recent packages in our examples; see the [About](./About.html) page for information about the package versions.
 
-```{r setup}
-
+```{r}
 library(tidyverse)
 library(refund.shiny)
-
-theme_set(theme_bw() + theme(legend.position = "bottom"))
+library(tidyfun)
 ```
 
 ## Notation for functional data
@@ -43,56 +56,59 @@ load("./DataCode/HeadStart.RDA")
 First, we plot a single subject to illustrate the "functional" nature of these data. 
 
 ```{r headstart_onesubj, eval = TRUE}
+covariate_data = 
+  covariate_data %>% 
+  mutate(accel = tfd(accel))
 
-as_refundObj(accel) %>% 
+covariate_data %>% 
 	filter(id == 1) %>%
-	ggplot(aes(x = index, y = value)) + geom_path()
-
+	ggplot(aes(y = accel)) + 
+  geom_spaghetti()
 ```
 
 Next, we plot all subjects. The previous plot is a single noodle in this plot of spaghetti.
 
 ```{r headstart_spaghetti, eval = TRUE}
-
-as_refundObj(accel) %>% 
-	ggplot(aes(x = index, y = value, group = id)) + geom_path(alpha = .1)
-
+covariate_data %>% 
+	ggplot(aes(y = accel)) + 
+  geom_spaghetti(alpha = .1)
 ```
 
-Now we compute the mean at each time point separately, and add this to our spaghetti. 
+Next we'll look at some raw and smoothed mean functions. 
 
-```{r headstart_pw_mean, eval = TRUE}
-
-pw_mean = as_refundObj(accel) %>%
-	group_by(index) %>%
-	summarize(pw_mean = mean(value))
-
-as_refundObj(accel) %>% 
-	ggplot(aes(x = index, y = value, group = id)) + geom_path(alpha = .1) +
-	geom_path(data = pw_mean, aes(y = pw_mean, group = NULL), color = "red", size = 1)
-
+```{r headstart_mean, eval = TRUE}
+covariate_data %>% 
+  group_by(season, sex) %>% 
+  summarize(mean_act = mean(accel)) %>%
+  mutate(smooth_mean = tf_smooth(mean_act)) %>%
+  ggplot(aes(y = mean_act, color = sex)) +
+  geom_spaghetti(alpha = .5) +
+  geom_spaghetti(aes(y = smooth_mean), size = 2) + 
+  facet_grid(~season)
 ```
 
-The pointwise mean is a bit jagged; now we use a smooth mean estimate.
+Including observed data is also possible, and helps to provide context for the mean values.
 
 ```{r headstart_smooth_mean, eval = TRUE}
+mean_df = 
+  covariate_data %>% 
+  group_by(season, sex) %>% 
+  summarize(mean_act = mean(accel)) %>%
+  mutate(smooth_mean = tf_smooth(mean_act))
 
-as_refundObj(accel) %>% 
-	ggplot(aes(x = index, y = value, group = id)) + geom_path(alpha = .1) +
-	geom_smooth(aes(group = NULL), color = "red", size = 1) 
-
+covariate_data %>% 
+  ggplot(aes(y = accel, color = sex)) +
+  geom_spaghetti(alpha = .05) +
+  geom_spaghetti(data = mean_df, aes(y = smooth_mean), size = 2) + 
+  facet_grid(~season)
 ```
 
 Rainbow plots color each noodle according to some covariate value. We illustrate this using BMI Z-score. 
 
 ```{r headstart_rainbow, eval = TRUE}
-
-as_refundObj(accel) %>% 
-	left_join(dplyr::select(covariate_data, id, BMIZ)) %>%
-	ggplot(aes(x = index, y = value, group = id, color = BMIZ)) + geom_path(alpha = .5) + 
-  scale_colour_gradientn(colours = c("red","yellow","green","lightblue","darkblue"),
-                         values = c(1.0, 0.6, 0.55, 0.45, 0.4, 0))
-
+covariate_data %>% 
+  ggplot(aes(y = accel, color = BMIZ)) +
+  geom_spaghetti(alpha = .05)
 ```
 
 Lastly, we show the covariance surface to get an idea of the overall variance and the correlation across times. 

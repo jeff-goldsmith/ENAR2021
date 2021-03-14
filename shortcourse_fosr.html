@@ -425,20 +425,42 @@ div.tocify {
 </div>
 
 
+<pre class="r"><code>knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = &quot;##&quot;,
+  fig.width = 8, 
+  fig.height = 5.5,
+  out.width = &quot;90%&quot;
+)
+
+library(tidyverse)
+library(viridisLite)
+
+theme_set(theme_minimal() + theme(legend.position = &quot;bottom&quot;))
+
+options(
+  ggplot2.continuous.colour = &quot;viridis&quot;,
+  ggplot2.continuous.fill = &quot;viridis&quot;
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d</code></pre>
 <p>This page contains a combination of traditional lecture materials (slides) and code demonstrating the relevant methods. The short course will proceed by working through both. We will use several recent packages in our examples; see the <a href="./About.html">About</a> page for information about the package versions.</p>
 <pre class="r"><code>library(tidyverse)
-## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──
-## ✓ ggplot2 3.3.3     ✓ purrr   0.3.4
-## ✓ tibble  3.1.0     ✓ dplyr   1.0.5
-## ✓ tidyr   1.1.3     ✓ stringr 1.4.0
-## ✓ readr   1.3.1     ✓ forcats 0.5.0
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## x dplyr::filter() masks stats::filter()
-## x dplyr::lag()    masks stats::lag()
-library(refund)
-library(refund.shiny)
 
-theme_set(theme_bw() + theme(legend.position = &quot;bottom&quot;))</code></pre>
+library(tidyfun)
+## Warning: replacing previous import &#39;dplyr::data_frame&#39; by &#39;vctrs::data_frame&#39;
+## when loading &#39;tidyfun&#39;
+## Registered S3 method overwritten by &#39;GGally&#39;:
+##   method from   
+##   +.gg   ggplot2
+## 
+## Attaching package: &#39;tidyfun&#39;
+## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     sd, var
+library(refund)
+library(refund.shiny)</code></pre>
 <p>In this section we’ll use the <a href="./shortcourse_data.html">HeadStart data</a> to motivate the function-on-scalar regression model. Our main outcome of interest is the observed physical activity profile, with predictors including age, sex, and season. This material draws heavily from <a href="http://jeffgoldsmith.com/Downloads/HeadStart.pdf">Goldsmith et al</a> (2016).</p>
 <div id="function-on-scalar-regression" class="section level2">
 <h2>Function-on-scalar regression</h2>
@@ -452,53 +474,76 @@ theme_set(theme_bw() + theme(legend.position = &quot;bottom&quot;))</code></pre>
 <p>One use of the rainbow plot is to get a quick sense for whether functional responses are related to covariates. Below we plot activity curves according to the season in which they were observed. Because the data are noisy enough that trends are not immediately apparent, we also include smooth means for both seasons.</p>
 <pre class="r"><code>load(&quot;./DataCode/HeadStart.RDA&quot;)
 
-as_refundObj(accel) %&gt;% 
-    left_join(dplyr::select(covariate_data, id, season)) %&gt;%
-    ggplot(aes(x = index, y = value, group = id, color = season)) + geom_path(alpha = .1) +
-    geom_smooth(aes(group = season), se = FALSE)
-## Joining, by = &quot;id&quot;
-## `geom_smooth()` using method = &#39;gam&#39; and formula &#39;y ~ s(x, bs = &quot;cs&quot;)&#39;</code></pre>
-<p><img src="shortcourse_fosr_files/figure-html/headstart_explore-1.png" width="768" /></p>
-<p>Based on the above, we fit the FoSR equivalent of a simple linear regression to these data.</p>
-<pre class="r"><code>temp_df = covariate_data
-temp_df$accel = accel
+covariate_data = 
+  covariate_data %&gt;% 
+  mutate(accel = tfd(accel))
 
-fosr_slr = bayes_fosr(accel ~ season, data = temp_df, 
+mean_df = 
+  covariate_data %&gt;% 
+  group_by(season) %&gt;% 
+  summarize(mean_act = mean(accel)) %&gt;%
+  mutate(smooth_mean = tf_smooth(mean_act))
+## using f = 0.15 as smoother span for lowess
+
+covariate_data %&gt;% 
+  ggplot(aes(y = accel, color = season)) +
+  geom_spaghetti(alpha = .05) +
+  geom_spaghetti(data = mean_df, aes(y = smooth_mean), size = 2)
+## Warning: Unknown or uninitialised column: `flipped_aes`.
+
+## Warning: Unknown or uninitialised column: `flipped_aes`.
+
+## Warning: Unknown or uninitialised column: `flipped_aes`.
+
+## Warning: Unknown or uninitialised column: `flipped_aes`.</code></pre>
+<p><img src="shortcourse_fosr_files/figure-html/headstart_explore-1.png" width="90%" /></p>
+<p>Based on the above, we fit the FoSR equivalent of a simple linear regression to these data.</p>
+<pre class="r"><code>regress_df = covariate_data
+regress_df$accel = accel
+
+fosr_slr = bayes_fosr(accel ~ season, data = regress_df, 
                                             est.method = &quot;GLS&quot;, Kt = 8, basis = &quot;pbs&quot;)
 ## Warning in model.matrix.default(mt_fixed, mf_fixed, contrasts): non-list
 ## contrasts argument ignored
 ## Using OLS to estimate residual covariance 
 ## GLS
 
-as_refundObj(fosr_slr$beta.hat) %&gt;% 
-    ggplot(aes(x = index, y = value)) + facet_grid(~id) + geom_path()</code></pre>
-<p><img src="shortcourse_fosr_files/figure-html/headstart_fosr_slr-1.png" width="768" /></p>
+tibble(
+  coef_name = c(&quot;int&quot;, &quot;slope&quot;),
+  coef_value = tfd(fosr_slr$beta.hat)) %&gt;% 
+    ggplot(aes(y = coef_value)) + 
+  geom_spaghetti() +
+  facet_grid(~coef_name)
+## Warning: Unknown or uninitialised column: `flipped_aes`.
+## Warning: Unknown or uninitialised column: `flipped_aes`.</code></pre>
+<p><img src="shortcourse_fosr_files/figure-html/headstart_fosr_slr-1.png" width="90%" /></p>
 <p>The <code>refund.shiny</code> package has helpful tools for visualizing the results of a function-on-scalar regression analysis; these can be helpful for understanding the results.</p>
 <pre class="r"><code>plot_shiny(fosr_slr)</code></pre>
 <p>To examine more complex associations, and to account for possible confounding, we use the FoSR equivalent of a multiple linear regression.</p>
 <pre class="r"><code>fosr_mlr = bayes_fosr(accel ~ season + sex + BMIZ + TV + 
                       videogames + mom_work + asthma + child_age + 
                       mom_age + educ_mom + num_rooms + mom_born_US + tricep + 
-                      subscap + skinfold, data = temp_df, 
+                      subscap + skinfold, data = regress_df, 
                                             est.method = &quot;GLS&quot;, Kt = 8, basis = &quot;pbs&quot;)
 ## Warning in model.matrix.default(mt_fixed, mf_fixed, contrasts): non-list
 ## contrasts argument ignored
 ## Using OLS to estimate residual covariance 
 ## GLS
 
-as_refundObj(fosr_mlr$beta.hat[-1,]) %&gt;% 
-    ggplot(aes(x = index, y = value, group = id)) + geom_path(alpha = .5)</code></pre>
-<p><img src="shortcourse_fosr_files/figure-html/headstart_fosr_mlr-1.png" width="768" /></p>
+tibble(coef_value = tfd(fosr_mlr$beta.hat[-1,])) %&gt;% 
+    ggplot(aes(y = coef_value)) + geom_spaghetti(alpha = .5)
+## Warning: Unknown or uninitialised column: `flipped_aes`.
+## Warning: Unknown or uninitialised column: `flipped_aes`.</code></pre>
+<p><img src="shortcourse_fosr_files/figure-html/headstart_fosr_mlr-1.png" width="90%" /></p>
 <p>Again, the results of this model can be easier to understand using interactive graphics.</p>
 <pre class="r"><code>plot_shiny(fosr_mlr)</code></pre>
 <p>For these same data, we can compute average activity counts for each subject and fit a usual MLR.</p>
-<pre class="r"><code>temp_df = covariate_data
-temp_df$mean_accel = apply(accel, 1, mean)
+<pre class="r"><code>regress_df$mean_accel = apply(accel, 1, mean)
 
 mlr = lm(mean_accel ~ season + sex + BMIZ + TV + 
                       videogames + mom_work + asthma + child_age + 
                       mom_age + educ_mom + num_rooms + mom_born_US + tricep + 
-                      subscap + skinfold, data = temp_df)
+                      subscap + skinfold, data = regress_df)
 
 mlr %&gt;% 
     broom::tidy() %&gt;%
