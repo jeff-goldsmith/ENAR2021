@@ -55,6 +55,8 @@ load("./DataCode/HeadStart.RDA")
 
 ```
 
+We're also going to use the [`tidyfun`](https://tidyfun.github.io/tidyfun/index.html) R package for some plotting and exploratory analysis. 
+
 First, we plot a single subject to illustrate the "functional" nature of these data. 
 
 ```{r headstart_onesubj, eval = TRUE}
